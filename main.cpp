@@ -1,65 +1,38 @@
-#include "vex.h"
-#include <math.h>
-using namespace vex;
+#include "main.h"
+#include "lemlib/api.hpp"
 
-competition Competition;
+pros::Controller controller(pros::E_CONTROLLER_MASTER);
+pros::Imu imu(10);
+lemlib::Drivetrain drivetrain(&leftMotors, &rightMotors, 10, lemlib::Omniwheel::NEW_4, 360, 2);
+pros::MotorGroup leftMotors({-1,2,-3}, pros::MotorGearset::blue); //motors 1 and 3 are reversed
+pros::MotorGroup rightMotors({4,-5,6}, pros::MotorGearset::blue); //motor 5 is reversed
+pros::Rotation horizontalEnc(20);
+pros::Rotation verticalEnc(-11);
+lemlib::TrackingWheel horizontal(&horizontalEnc, lemlib::Omniwheel::NEW_325, 2);
+lemlib::TrackingWheel vertical(&verticalEnc, lemlib::Omniwheel::NEW_325, 2);
 
-void pre_autonomous(void){
-    vexcodeInit();
+lemlib::ControllerSettings linearController(10,0,3,3,1,100,3,500,20);
+lemlib::ControllerSettings angularController(2,0,10,3,1,100,3,500,0);
+lemlib::OdomSensors sensors(&vertical, nullptr, &horizontal, nullptr, &imu);
+lemlib::ExpoDriveCurve throttleCurve(3,10,1.019);
+lemlib::ExpoDriveCurve steerCurve(3,10,1.019);
+
+lemlib::Chassis chassis(drivetrain, linearController, angularController, sensors, &throttleCurve, &steerCurve);
+
+lemlib::ControllerSettings angular_controller(2,0,10,3,1,100,3,500,0);
+lemlib::ControllerSettings lateral_controller(10,0,3,3,1,100,3,500,20);
+
+void autonomous(){
+	chassis.setPose(0,0,0);
+	chassis.turnToHeading(90,100000);
 }
 
-double kP = 0.0;
-double kI = 0.0;
-double kD = 0.0;
+void opcontrol(){
+	while (true){
+		int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+		int rightY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
 
-int desiredValue = 200;
-int desiredTurnValue = 0;
-
-int error; // Sensor Value - Disired Value - Position
-int prev_error = 0; // Position 20 milliseconds ago
-int derivative;
-int totalError = 0;
-
-bool enableDrivePID = true;
-
-int drivePID(){
-    while(enableDrivePID){
-        int leftMotorPosition = leftMotorPosition;
-        int rightMotorPosition = rightMotorPosition;
-
-        int averageposition = (leftMotorPosition + rightMotorPosition) / 2;
-
-        error = averageposition - desiredValue;
-
-        derivative = error - prev_error;
-
-        totalError += error;
-
-        double LateralmotorPower = (error * kP + derivative * kD + totalError * kI) / 12.0;
-
-
-
-        LeftMotor.spin(forward, LateralmotorPower + turnVolts, voltageUnits::volt);
-        RightMotor.spin(forward, LateralmotorPower - turnVolts, voltageUnits::volt);
-
-
-
-        prev_error = error;
-        vex::task::sleep(20);
-    }
-
-    return 1;
-}
-
-void autonomous(void){
-    vex::task doTask(drivePID);
-
-
-}
-
-void usercontrol(void){
-    
-    enableDrivePID = false;
-    double turnImportance = 0.5;
-
+		chassis.tank(leftY, rightY);
+		pros::delay(25);
+	}
 }
